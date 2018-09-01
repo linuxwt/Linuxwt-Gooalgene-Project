@@ -22,6 +22,8 @@ $8-${11}表示dba、dbb、dbc、dbd的库密码
 bash mongodeploy.sh tengwang tengwang100 dba dbb dbc dbd shanwang shanwang101 shanwang102 shanwang103 shanwang104  
 # tomcatdeploy.sh  
 在其前端部署了一个nginx代理跳转到tomcat的默认的8080端口   
+# 参考文档  
+https://linuxwt.com/2018/08/28/ji-lu-yi-ci-dockerbu-shu-mysql-mongo-tomcat-jdk-maven-gitbing-dao-ru-shu-ju/  
 
 
 
