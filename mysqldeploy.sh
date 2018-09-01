@@ -1,3 +1,5 @@
+#!/bin/bash
+
 docker pull mysql:5.7  
 # 编写docker-compose.yml文件
 mysql_dir="/data/gooalgene/mysql"  
