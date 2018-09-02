@@ -1,4 +1,5 @@
 # 项目需求  
+系统环境 centos7.5
 docker部署mysql 5.7 mongo3.4 tomcat8.5 nginx maven jdk  
 mysql创建四个数据库dba dbb dbc dbd设定root密码，并用一个用户shanwang来管理这四个数据库，并位该用户设定密码  
 mongo创建四个数据库dba dbb dbc dbd设定admin库用户和密码、用一个用户shanwang来管理这四个数据库，并为每一个数据库设定一个密码  
