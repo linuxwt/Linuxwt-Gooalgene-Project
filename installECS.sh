@@ -25,7 +25,7 @@ firewall-cmd --zone=public --add-port=27117-27120/tcp --permanent
 firewall-cmd --zone=public --add-port=33066-33070/tcp --permanent  
 }
 firewalld_status=$(systemctl status firewalld)  
-if [ ${firewalld_status == "success"} ];then  
+if [ ${firewalld_status} == "success" ];then  
     function_firewalld
 else  
     systemctl start firewalld
