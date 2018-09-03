@@ -3,7 +3,6 @@
 docker pull mysql:5.7  
 # 编写docker-compose.yml文件
 mysql_dir="/data/gooalgene/mysql"  
-mysql_dir="/data/gooalgene/mysql"  
 if [ ! -d ${mysql_dir}/mysql ];then  
         mkdir -p ${mysql_dir}/mysql
 
