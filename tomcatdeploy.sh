@@ -68,7 +68,7 @@ tomcat_linuxwt:
    container_name: tomcat_linuxwt
    volumes:
        - \$PWD/conf/server.xml:/usr/local/tomcat/conf/server.xml
-       - /webapps:/usr/local/tomcat/webapps/root
+       - /webapps:/usr/local/tomcat/webapps/ROOT
        - /etc/localtime:/etc/localtime
        - /etc/timezone:/etc/timezone
    expose:
