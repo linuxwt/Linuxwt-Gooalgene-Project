@@ -21,9 +21,9 @@ cd ${tomcat_dir}
 wget  http://apache.fayea.com/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz
 tar zvxf apache-maven-3.5.4-bin.tar.gz 
 mv apache-maven-3.5.4 maven3.5
-wget --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u181-b13/96a7b8442fe848ef90c96a2fad6ed6d1/jdk-8u181-linux-x64.tar.gz
-tar zvxf jdk-8u181-linux-x64.tar.gz
-mv jdk1.8.0_181 jdk1.8
+wget --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u192-b12/750e1c8617c5452694857ad95c3ee230/jdk-8u192-linux-x64.tar.gz
+tar zvxf jdk-8u192-linux-x64.tar.gz
+mv jdk1.8.0_192 jdk1.8
 cp /etc/profile /etc/profile.bak
 cat <<EOF>> /etc/profile
 export JAVA_HOME=/data/gooalgene/java/jdk1.8 MAVEN_HOME=/data/gooalgene/java/maven3.5
