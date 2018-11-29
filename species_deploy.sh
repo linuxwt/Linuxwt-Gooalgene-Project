@@ -93,6 +93,13 @@ sed -i 's/enforcing/disabled/g' /etc/sysconfig/selinux
 systemctl stop firewalld
 systemctl disable firewalld
 systemctl daemon-reload
+# 时区同步
+if [ ! -f "/etc/localtime" ];then
+	cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+fi
+if [ ! -f "/etc/timezone" ];then
+	echo "Asia/Shanghai" > /etc/timezone
+fi
 
 # 更改docker存储位置
 cp -r /var/lib/docker ${project_dir}
