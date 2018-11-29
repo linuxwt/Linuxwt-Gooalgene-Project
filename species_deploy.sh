@@ -464,3 +464,47 @@ EOF
 
 cd ${project_dir}/gooalgene/${species_name}
 docker-compose up -d
+
+# 安装mysql
+mysql_dir="${project_dir}/gooalgene/mysql"
+if [ ! -d ${mysql_dir} ];then
+    mkdir -p ${mysql_dir}
+else
+    mv ${mysql_dir} ${project_dir}/gooalgene/mysql.bak
+    mkdir -p ${mysql_dir}
+fi
+cat <<EOF>> ${mysql_dir}/docker-compose.yml
+mysql_${species_name}:
+  restart: always
+  image: mysql:5.7
+  container_name: mysql_${species_name}
+  volumes:
+      - /etc/localtime:/etc/localtime
+      - /etc/timezone:/etc/timezone
+      - \$PWD/mysql:/var/lib/mysql
+      - \$PWD/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
+  privileged: true
+  ports:
+    - 33066:3306
+  environment:
+       MYSQL_ROOT_PASSWORD: ${mysql_password}
+EOF
+cat <<EOF>> ${mysql_dir}/mysqld.cnf
+[mysqld]
+pid-file    = /var/run/mysqld/mysqld.pid
+socket      = /var/run/mysqld/mysqld.sock
+datadir     = /var/lib/mysql
+#log-error  = /var/log/mysql/error.log
+# By default we only accept connections from localhost
+#bind-address   = 127.0.0.1
+# Disabling symbolic-links is recommended to prevent assorted security risks
+#支持符号链接，就是可以通过软连接的方式，管理其他目录的数据库，最好不要开启，当一个磁盘或分区空间不够时，可以开启该参数将数据存储到其他的磁盘或分区。
+#http://blog.csdn.net/moxiaomomo/article/details/17092871
+symbolic-links=0
+EOF
+
+cd ${mysql_dir}
+docker-compose up -d
+# 保证mysql初始化完成,要不然下面无法进行数据库的创建
+sleep 10
+docker exec mysql_${species_name} mysql -uroot -p${mysql_password} -e "create database ${mysql_db};show databases;"
