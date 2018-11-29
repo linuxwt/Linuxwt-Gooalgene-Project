@@ -90,6 +90,15 @@ yum -y install lrzsz && yum -y install openssh-clients && yum -y install telnet 
 setenforce 0
 sed -i 's/enforcing/disabled/g' /etc/selinux/config
 sed -i 's/enforcing/disabled/g' /etc/sysconfig/selinux
+systemctl stop firewalld
+systemctl disable firewalld
+systemctl daemon-reload
+
+# 更改docker存储位置
+cp -r /var/lib/docker ${project_dir}
+rm -Rf /var/lib/docker
+ln -s ${project_dir}/docker /var/lib/docker
+systemctl restart docker
 
 sleep 5
 echo "yum and docker are ok!!!"
@@ -103,13 +112,7 @@ else
     mv ${tomcat_dir} ${tomcat_dir}.bak
     mkdir -p ${tomcat_dir}
 fi
-# 更改docker存储位置
-cp -r /var/lib/docker ${project_dir}
-rm -Rf /var/lib/docker
-ln -s ${project_dir}/docker /var/lib/docker
-systemctl restart docker
 
-# 宿主机上部署jdk和maven
 prog=$(rpm -qa|grep java | wc -l)
 if [ ${prog} -gt 0 ];then
     echo "the system have java,next we uninstall it and install new."
