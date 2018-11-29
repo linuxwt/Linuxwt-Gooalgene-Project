@@ -97,7 +97,8 @@ systemctl daemon-reload
 if [ ! -f "/etc/localtime" ];then
 	cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 fi
-if [ ! -f "/etc/timezone" ];then
+if [ -d "/etc/timezone" ];then
+        rm -Rf /etc/timezone
 	echo "Asia/Shanghai" > /etc/timezone
 fi
 
