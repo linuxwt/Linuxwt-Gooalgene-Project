@@ -1,12 +1,113 @@
 #!/bin/bash
 
-tomcat_dir="/data/gooalgene/java"
+project_dir="$1"
+species_name="$2"
+# 更换yum源并安装docker、docker-compose
+yum -y install wget
+mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
+wget http://mirrors.163.com/.help/CentOS7-Base-163.repo
+mv CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
+yum clean all && yum makecache && yum -y update
+# 安装docker18.03与docker-compose  
+installdocker1()
+{
+        yum -y install yum-utils device-mapper-persistent-data lvm2
+        yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        yum-config-manager --enable docker-ce-edge
+        yum-config-manager --enable docker-ce-test
+        yum -y install docker-ce
+}
+installdocker2()
+{
+yum install -y yum-utils device-mapper-persistent-data lvm2
+yum-config-manager  --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+yum makecache fast
+yum -y install docker-ce
+}
+docker version
+if [ $? -eq 127 ];then
+        echo "we can install docker-ce"
+        sleep 5
+        installdocker1
+        if [ $? -ne 0 ];then
+            echo "you should use aliyun image."
+            installdocker2
+        fi
+        docker version
+        if [ $? -lt 127 ];then
+                echo "the installation of docker-ce is ok."
+                rpm -qa | grep docker | xargs rpm -e --nodeps 
+                yum -y install docker-ce-18.03*
+        else
+                echo "the installation of docker-ce failed ,please reinstall"
+                exit -1
+        fi
+else
+        echo "docker have installed，pleae uninstall old version"
+        sleep 5
+        rpm -qa | grep docker | xargs rpm -e --nodeps
+        docker version
+        if [ $? -eq 127 ];then
+                echo "old docker have been uninstalled and you can install docker-ce"
+                sleep 5
+                installdocker1
+                if [ $? -ne 0 ];then
+                    echo "you should use aliyun image."
+                    installdocker2
+                fi
+                docker version
+                if [ $? -lt 127 ];then
+                        echo "the installation of docker-ce is ok."
+                        rpm -qa | grep docker | xargs rpm -e --nodeps
+                        yum -y install docker-ce-18.03*
+                else
+                        echo "the installation of docker-ce failed anad please reinstall."
+                        exit -1
+                fi
+        else
+                echo "the old docker uninstalled conpletely and please uninstall again."
+                exit -1
+        fi
+fi
+systemctl start docker && systemctl enable docker && systemctl daemon-reload 
+docker_version=$(docker version | grep "Version" | awk '{print $2}' | head -n 2 | sed -n '2p')
+if [ $? -eq 0 ];then
+        echo "docker start successfully and the version is ${docker_version}"
+fi
+# 安装docker-compose并检查版本
+yum -y install epel-release  && yum -y install python-pip  && pip install docker-compose  && pip install --upgrade pip 
+docker-compose_version=$(docker-compose version | grep 'docker-compose' | awk '{print $3}')
+if [ $? -eq 0 ];then
+        echo "the docker-compose version is ${docker-compose_version}"
+fi
+# 配置docker加速拉取
+echo {\"registry-mirrors\":[\"https://nr630v1c.mirror.aliyuncs.com\"]} > /etc/docker/daemon.json
+
+# 安装常用工具
+yum -y install lrzsz && yum -y install openssh-clients && yum -y install telnet && yum -y install rsync 
+
+# 防火墙配置
+setenforce 0
+sed -i 's/enforcing/disabled/g' /etc/selinux/config
+sed -i 's/enforcing/disabled/g' /etc/sysconfig/selinux
+
+sleep 5
+echo "yum and docker are ok!!!"
+sleep 5
+
+# 安装jdk、maven
+tomcat_dir="${project_dir}/gooalgene/java"
 if [ ! -d ${tomcat_dir} ];then
     mkdir -p ${tomcat_dir}
 else
     mv ${tomcat_dir} ${tomcat_dir}.bak
     mkdir -p ${tomcat_dir}
 fi
+# 更改docker存储位置
+cp -r /var/lib/docker ${project_dir}
+rm -Rf /var/lib/docker
+ln -s ${project_dir}/docker /var/lib/docker
+systemctl restart docker
 
 # 宿主机上部署jdk和maven
 prog=$(rpm -qa|grep java | wc -l)
@@ -18,94 +119,110 @@ else
     echo "you need installed java"
 fi
 cd ${tomcat_dir}
-wget  http://apache.fayea.com/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz
-tar zvxf apache-maven-3.5.4-bin.tar.gz 
-mv apache-maven-3.5.4 maven3.5
+
 wget --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u192-b12/750e1c8617c5452694857ad95c3ee230/jdk-8u192-linux-x64.tar.gz
 tar zvxf jdk-8u192-linux-x64.tar.gz
 mv jdk1.8.0_192 jdk1.8
+wget  http://apache.fayea.com/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz
+tar zvxf apache-maven-3.5.4-bin.tar.gz
+mv apache-maven-3.5.4 maven3.5
+# 加入环境变量
 cp /etc/profile /etc/profile.bak
 cat <<EOF>> /etc/profile
-export JAVA_HOME=/data/gooalgene/java/jdk1.8 MAVEN_HOME=/data/gooalgene/java/maven3.5
+export JAVA_HOME=${project_dir}/gooalgene/java/jdk1.8 MAVEN_HOME=${project_dir}/gooalgene/java/maven3.5
 export CLASSPATH=.:\$JAVA_HOME/jre/lib/rt.jar:\$JAVA_HOME/lib/dt.jar:\$JAVA_HOME/lib/tools.jar
-export PATH=\$JAVA_HOME/bin:\$MAVEN_HOME/bin:\$PATH
+export PATH=\$JAVA_HOME/bin:\$MAVEN_HOME/bin:\$PATH 
 EOF
-
-# 生成带maven的tommcat镜像
-cat <<EOF>> ${tomcat_dir}/Dockerfile
-FROM tomcat:8.5  
-MAINTAINER linuxwt
-
-RUN mkdir /usr/local/tomcat/maven  
-ADD ./maven3.5 /usr/local/tomcat/maven
-
-ENV MAVEN_HOME /usr/local/tomcat/maven  
-ENV PATH \$PATH:\$MAVEN_HOME/bin
-
-EXPOSE 8080  
+sleep 3
+echo "jdk and maven are ok!!!"
+sleep 3
+# 安装mysql、mongodb客户端
+wget https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-community-common-5.7.24-1.el7.x86_64.rpm 
+wget https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-community-libs-5.7.24-1.el7.x86_64.rpm
+wget https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-community-libs-compat-5.7.24-1.el7.x86_64.rpm
+wget https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-community-client-5.7.24-1.el7.x86_64.rpm
+mariadb_num=$(rpm -qa|grep mariadb | wc -l)
+if [ ${mariadb_num} -eq 0 ];then
+    echo "you can install mysql."
+else
+    rpm -qa | grep mariadb | xargs rpm -e --nodeps
+fi
+rpm -ivh  mysql-community-common-5.7.24-1.el7.x86_64.rpm
+rpm -ivh  mysql-community-libs-5.7.24-1.el7.x86_64.rpm
+rpm -ivh  mysql-community-libs-compat-5.7.24-1.el7.x86_64.rpm
+rpm -ivh  mysql-community-client-5.7.24-1.el7.x86_64.rpm
+wget http://downloads.mongodb.org/linux/mongodb-linux-x86_64-rhel70-3.6.6.tgz  
+tar vxf mongodb-linux-x86_64-rhel70-3.6.6.tgz  
+mv mongodb-linux-x86_64-rhel70-3.6.6 /usr/local/mongodb
+cat <<EOF>> /etc/profile
+export MONGODB_HOME=/usr/local/mongodb 
+export PATH=\$MONGODB_HOME/bin:\$PATH 
 EOF
-docker build -t tomcat:maven .
-# 一般我们会在tomcat前面加上一个nginx作反向代理已达到安全的目的,下面是我们编写的docker-compose.yml文件、
-cat <<EOF>> ${tomcat_dir}/docker-compose.yml
-nginx_linuxwt:
+sleep 3
+echo "mysql and mongodb client are ok!!!"
+sleep 3
+
+# 安装nginx和tomcat
+species_dir="${project_dir}/gooalgene/${species_name}"
+if [ ! -d ${species_dir} ];then
+    mkdir -p ${species_dir}
+else
+    mv ${species_dir} ${species_dir}.bak
+    mkdir -p ${species_dir}
+fi
+mkdir -p ${project_dir}/gooalgene/${species_name}/conf
+
+cat <<EOF>> ${species_dir}/docker-compose.yml
+nginx_${species_name}:
    restart: always
    image: nginx
-   container_name: nginx_linuxwt
+   container_name: nginx_${species_name}
    volumes:
        - \$PWD/conf/nginx.conf:/etc/nginx/nginx.conf
        - \$PWD/conf/nginx_reverse.conf:/etc/nginx/conf.d/default.conf
        - /etc/localtime:/etc/timezone
-       - /www/html:/www/html
+       - /etc/timezone:/etc/timezone
+       - ${project_dir}/download:/www/html
    links:
-       - tomcat_linuxwt
+       - tomcat_${species_name}
    privileged: true
    ports:
-       - 150:80
+       - 180:80
        - 80:90
-tomcat_linuxwt:
+tomcat_${species_name}:
    restart: always
-   image: tomcat:maven
-   container_name: tomcat_linuxwt
+   image: tomcat
+   container_name: tomcat_${species_name}
    volumes:
        - \$PWD/conf/server.xml:/usr/local/tomcat/conf/server.xml
-       - /webapps:/usr/local/tomcat/webapps/ROOT
+  #    - ./conf/web.xml:/usr/local/tomcat/conf/web.xml
+  #    - ./conf/catalina.sh:/usr/local/tomcat/bin/catalina.sh
+  #    - ./soybean/soybean-dna:/usr/local/tomcat/webapps/soybean-dna
        - /etc/localtime:/etc/localtime
        - /etc/timezone:/etc/timezone
    expose:
        - 8080
 EOF
-# 编写nginx.conf
-mkdir -p ${tomcat_dir}/conf
-touch ${tomcat_dir}/conf/nginx.conf
-cat <<EOF>> ${tomcat_dir}/conf/nginx.conf
+
+cat <<EOF>> ${species_dir}/conf/nginx.conf
 user  nginx;  
 worker_processes  1;
-
 error_log  /var/log/nginx/error.log warn;  
 pid        /var/run/nginx.pid;
-
-
 events {  
     worker_connections  1024;
 }
-
-
 http {  
     include       /etc/nginx/mime.types;
         server_tokens off;
     default_type  application/octet-stream;
-
     log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
                       '\$status \$body_bytes_sent "\$http_referer" '
                       '"\$http_user_agent" "\$http_x_forwarded_for"';
-
     access_log  /var/log/nginx/access.log  main;
-
     sendfile        on;
     #tcp_nopush     on;
-
     keepalive_timeout  3000;
-
     gzip  on;
     gzip_min_length  1k;
     gzip_buffers     4 16k;
@@ -117,36 +234,33 @@ http {
     gzip_vary on;
     gzip_proxied   expired no-cache no-store private auth;
     gzip_disable   "MSIE [1-6]\.";
-
     include /etc/nginx/conf.d/*.conf;
 }
 EOF
 
-# 编写nginx_reverse.conf
-touch ${tomcat_dir}/conf/nginx_reverse.conf
-cat <<EOF>> ${tomcat_dir}/conf/nginx_reverse.conf
-upstream tomcat_linuxwt {  
-    server tomcat_linuxwt:8080;
+cat <<EOF>> ${species_dir}/conf/nginx_reverse.conf
+upstream tomcat_${species_name} {
+    server tomcat_${species_name}:8080;
     }
 
-server {  
+server {
     listen  80;
     location / {
         root /www/html;
         index index.html;
-        try_files \$uri \$uri/ /index.html;
+        try_files $uri \$uri/ /index.html;
         autoindex on;
         autoindex_exact_size off;
         autoindex_localtime on;
     }
 }
 
-map \$http_upgrade \$connection_upgrade {  
+map \$http_upgrade \$connection_upgrade {
         default upgrade;
         ''      close;
     }
 
-server {  
+server {
     listen  90;
     location / {
         proxy_set_header Access-Control-Allow-Origin *;
@@ -155,7 +269,7 @@ server {
         proxy_redirect off;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Scheme \$scheme;
-        proxy_pass http://tomcat_linuxwt;
+        proxy_pass http://tomcat_${species_name};
         client_max_body_size 0;
         proxy_connect_timeout 420;
         proxy_send_timeout 420;
@@ -167,9 +281,7 @@ server {
 }
 EOF
 
-# 编写server.xml
-touch ${tomcat_dir}/conf/server.xml
-cat <<EOF>> ${tomcat_dir}/conf/server.xml
+cat <<EOF>> ${species_dir}/conf/server.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Licensed to the Apache Software Foundation (ASF) under one or more
@@ -338,5 +450,6 @@ cat <<EOF>> ${tomcat_dir}/conf/server.xml
   </Service>
 </Server>
 EOF
-docker-compose up -d
 
+cd ${project_dir}/gooalgene/${species_name}
+docker-compose up -d
