@@ -2,6 +2,8 @@
 
 project_dir="$1"
 species_name="$2"
+mysql_password="$3"
+mysql_db="$4"
 # 更换yum源并安装docker、docker-compose
 yum -y install wget
 mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
