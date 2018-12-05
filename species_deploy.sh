@@ -2,8 +2,16 @@
 
 project_dir="$1"
 species_name="$2"
-mysql_password="$3"
+mysqlroot_password="$3"
 mysql_db="$4"
+mongoadmin_user="$5"
+mongoadmin_password="$6"
+redis_password="$7"
+if [ $# -ne 7 ];then
+    echo "you need add 7 arguments:应用部署目录 物种名 mysql的root密码 mysql库 mongodb的admin库用户 mongodb的admin库密码 redis密码 after scrpts' name."
+    exit -1
+fi
+    
 # 更换yum源并安装docker、docker-compose
 yum -y install wget
 mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
@@ -99,20 +107,21 @@ systemctl daemon-reload
 if [ ! -f "/etc/localtime" ];then
 	cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 fi
-if [ -d "/etc/timezone" ];then
+if [  -d "/etc/timezone" ];then
         rm -Rf /etc/timezone
 	echo "Asia/Shanghai" > /etc/timezone
 fi
 
 # 更改docker存储位置
+systemctl stop docker
 cp -r /var/lib/docker ${project_dir}
 rm -Rf /var/lib/docker
 ln -s ${project_dir}/docker /var/lib/docker
-systemctl restart docker
+systemctl start docker
 
-sleep 5
+sleep 10
 echo "yum and docker are ok!!!"
-sleep 5
+sleep 10
 
 # 安装jdk、maven
 tomcat_dir="${project_dir}/gooalgene/java"
@@ -174,7 +183,6 @@ EOF
 sleep 3
 echo "mysql and mongodb client are ok!!!"
 sleep 3
-
 # 安装nginx和tomcat
 species_dir="${project_dir}/gooalgene/${species_name}"
 if [ ! -d ${species_dir} ];then
@@ -184,7 +192,6 @@ else
     mkdir -p ${species_dir}
 fi
 mkdir -p ${project_dir}/gooalgene/${species_name}/conf
-
 cat <<EOF>> ${species_dir}/docker-compose.yml
 nginx_${species_name}:
    restart: always
@@ -216,7 +223,6 @@ tomcat_${species_name}:
    expose:
        - 8080
 EOF
-
 cat <<EOF>> ${species_dir}/conf/nginx.conf
 user  nginx;  
 worker_processes  1;
@@ -250,12 +256,10 @@ http {
     include /etc/nginx/conf.d/*.conf;
 }
 EOF
-
 cat <<EOF>> ${species_dir}/conf/nginx_reverse.conf
 upstream tomcat_${species_name} {
     server tomcat_${species_name}:8080;
     }
-
 server {
     listen  80;
     location / {
@@ -267,12 +271,10 @@ server {
         autoindex_localtime on;
     }
 }
-
 map \$http_upgrade \$connection_upgrade {
         default upgrade;
         ''      close;
     }
-
 server {
     listen  90;
     location / {
@@ -293,7 +295,6 @@ server {
     }
 }
 EOF
-
 cat <<EOF>> ${species_dir}/conf/server.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
@@ -303,9 +304,7 @@ cat <<EOF>> ${species_dir}/conf/server.xml
   The ASF licenses this file to You under the Apache License, Version 2.0
   (the "License"); you may not use this file except in compliance with
   the License.  You may obtain a copy of the License at
-
       http://www.apache.org/licenses/LICENSE-2.0
-
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -327,7 +326,6 @@ cat <<EOF>> ${species_dir}/conf/server.xml
   <Listener className="org.apache.catalina.core.JreMemoryLeakPreventionListener" />
   <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener" />
   <Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener" />
-
   <!-- Global JNDI resources
        Documentation at /docs/jndi-resources-howto.html
   -->
@@ -341,21 +339,17 @@ cat <<EOF>> ${species_dir}/conf/server.xml
               factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
               pathname="conf/tomcat-users.xml" />
   </GlobalNamingResources>
-
   <!-- A "Service" is a collection of one or more "Connectors" that share
        a single "Container" Note:  A "Service" is not itself a "Container",
        so you may not define subcomponents such as "Valves" at this level.
        Documentation at /docs/config/service.html
    -->
   <Service name="Catalina">
-
     <!--The connectors can use a shared executor, you can define one or more named thread pools-->
     <!--
     <Executor name="tomcatThreadPool" namePrefix="catalina-exec-"
         maxThreads="150" minSpareThreads="4"/>
     -->
-
-
     <!-- A "Connector" represents an endpoint by which requests are received
          and responses are returned. Documentation at :
          Java HTTP Connector: /docs/config/http.html
@@ -408,29 +402,23 @@ cat <<EOF>> ${species_dir}/conf/server.xml
         </SSLHostConfig>
     </Connector>
     -->
-
     <!-- Define an AJP 1.3 Connector on port 8009 -->
     <Connector port="8009" protocol="AJP/1.3" redirectPort="8443" />
-
-
     <!-- An Engine represents the entry point (within Catalina) that processes
          every request.  The Engine implementation for Tomcat stand alone
          analyzes the HTTP headers included with the request, and passes them
          on to the appropriate Host (virtual host).
          Documentation at /docs/config/engine.html -->
-
     <!-- You should set jvmRoute to support load-balancing via AJP ie :
     <Engine name="Catalina" defaultHost="localhost" jvmRoute="jvm1">
     -->
     <Engine name="Catalina" defaultHost="localhost">
-
       <!--For clustering, please take a look at documentation at:
           /docs/cluster-howto.html  (simple how to)
           /docs/config/cluster.html (reference documentation) -->
       <!--
       <Cluster className="org.apache.catalina.ha.tcp.SimpleTcpCluster"/>
       -->
-
       <!-- Use the LockOutRealm to prevent attempts to guess user passwords
            via a brute-force attack -->
       <Realm className="org.apache.catalina.realm.LockOutRealm">
@@ -441,31 +429,27 @@ cat <<EOF>> ${species_dir}/conf/server.xml
         <Realm className="org.apache.catalina.realm.UserDatabaseRealm"
                resourceName="UserDatabase"/>
       </Realm>
-
       <Host name="localhost"  appBase="webapps"
             unpackWARs="true" autoDeploy="true">
-
         <!-- SingleSignOn valve, share authentication between web applications
              Documentation at: /docs/config/valve.html -->
         <!--
         <Valve className="org.apache.catalina.authenticator.SingleSignOn" />
         -->
-
         <!-- Access log processes all example.
              Documentation at: /docs/config/valve.html
              Note: The pattern used is equivalent to using pattern="common" -->
         <Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
                prefix="localhost_access_log" suffix=".txt"
                pattern="%h %l %u %t &quot;%r&quot; %s %b" />
-
       </Host>
     </Engine>
   </Service>
 </Server>
 EOF
-
 cd ${project_dir}/gooalgene/${species_name}
 docker-compose up -d
+
 
 # 安装mysql
 mysql_dir="${project_dir}/gooalgene/mysql"
@@ -489,7 +473,7 @@ mysql_${species_name}:
   ports:
     - 33066:3306
   environment:
-       MYSQL_ROOT_PASSWORD: ${mysql_password}
+       MYSQL_ROOT_PASSWORD: ${mysqlroot_password}
 EOF
 cat <<EOF>> ${mysql_dir}/mysqld.cnf
 [mysqld]
@@ -508,5 +492,104 @@ EOF
 cd ${mysql_dir}
 docker-compose up -d
 # 保证mysql初始化完成,要不然下面无法进行数据库的创建
+sleep 15
+docker exec mysql_${species_name} mysql -uroot -p${mysqlroot_password} -e "create database ${mysql_db};show databases;"
+
+# 安装mongodb
+mongo_dir="${project_dir}/gooalgene/mongodb"
+if [ -d ${mongo_dir} ];then
+    mv ${project_dir}/gooalgene/mongodb ${project_dir}/gooalgene/mongodb.bak
+    mkdir -p ${project_dir}/gooalgene/mongodb
+else
+    mkdir -p ${project_dir}/gooalgene/mongodb
+fi
+cat <<EOF>> ${mongo_dir}/Dockerfile
+FROM centos:centos7
+MAINTAINER linuxwt <tengwanginit@gmail.com>
+ 
+RUN yum -y update
+ 
+RUN  echo '[mongodb-org-3.6]' > /etc/yum.repos.d/mongodb-org-3.6.repo
+RUN  echo 'name=MongoDB Repository' >> /etc/yum.repos.d/mongodb-org-3.6.repo
+RUN  echo 'baseurl=http://repo.mongodb.org/yum/redhat/7/mongodb-org/3.6/x86_64/' >> /etc/yum.repos.d/mongodb-org-3.6.repo
+RUN  echo 'enabled=1' >> /etc/yum.repos.d/mongodb-org-3.6.repo
+RUN  echo 'gpgcheck=0' >> /etc/yum.repos.d/mongodb-org-3.6.repo
+ 
+RUN yum -y install make
+RUN yum -y install mongodb-org
+RUN mkdir -p /data/db
+ 
+EXPOSE 27017
+ENTRYPOINT ["/usr/bin/mongod"]
+EOF
+
+cd ${mongo_dir}
+docker build -t centos7/mongo:3.6 .
+
+cat <<EOF>> ${mongo_dir}/docker-compose.yml
+mongo_${species_name}:
+  restart: always
+  image: centos7/mongo:3.6
+  container_name: mongo_${species_name}
+  volumes:
+    - /etc/localtime:/etc/localtime
+    - /etc/timezone:/etc/timezone
+    - \$PWD/mongo:/data/db
+    - \$PWD/enabled:/sys/kernel/mm/transparent_hugepage/enabled
+    - \$PWD/defrag:/sys/kernel/mm/transparent_hugepage/defrag
+  ulimits:
+    nofile:
+      soft: 300000
+      hard: 300000
+  ports:
+      - "27117:27017"
+  command: --bind_ip_all --port 27017 --oplogSize 204800 --profile=1 --slowms=500
+EOF
+echo "always madvise [never]" > ${mongo_dir}/defrag
+echo "always madvise [never]" > ${mongo_dir}/enabled
+
+docker-compose up -d
 sleep 10
-docker exec mysql_${species_name} mysql -uroot -p${mysql_password} -e "create database ${mysql_db};show databases;"
+docker exec mongo_${species_name} mongo admin --eval "db.createUser({user:\"${mongoadmin_user}\", pwd:\"${mongoadmin_password}\", roles:[{role:\"root\", db:\"admin\"},{role:\"clusterAdmin\",db:\"admin\"}]})"
+docker-compose down
+sed -i '/command.*/s//& --auth/g' /home/data/gooalgene/mongodb/docker-compose.yml
+docker-compose up -d
+sleep 10
+
+# 安装redis
+redis_dir="${project_dir}/gooalgene/redis"
+if [ -d ${redis_dir} ];then
+    mv ${project_dir}/gooalgene/redis ${project_dir}/gooalgene/redis.bak
+    mkdir -p ${project_dir}/gooalgene/redis
+else
+    mkdir -p ${project_dir}/gooalgene/redis
+fi
+cat <<EOF>> ${redis_dir}/docker-compose.yml
+redis_${species_name}:
+  restart: always
+  image: redis:4.0
+  container_name: redis_${species_name}
+  volumes:
+      - /etc/localtime:/etc/localtime
+      - /etc/timezone:/etc/timezone
+      - \$PWD/redis:/data
+      - \$PWD/redis.conf:/usr/local/etc/redis/redis.conf
+  privileged: true
+  ports:
+      - 6389:6379
+  command: redis-server /usr/local/etc/redis/redis.conf
+EOF
+
+cat <<EOF>> ${redis_dir}/redis.conf
+bind 127.0.0.1 
+#daemonize yes //禁止redis后台运行
+port 6379
+pidfile /var/run/redis.pid 
+appendonly yes
+protected-mode no
+requirepass ${redis_password}
+EOF
+
+cd ${redis_dir}
+docker-compose up -d
+
