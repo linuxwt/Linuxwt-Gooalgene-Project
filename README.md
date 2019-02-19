@@ -21,6 +21,6 @@ $3-$6表示dba、dbb、dbc、dbd数据库
 $7表示dba、dbb、dbc、dbd的库用户   
 $8-${11}表示dba、dbb、dbc、dbd的库密码    
 bash mongodeploy.sh tengwang tengwang100 dba dbb dbc dbd shanwang shanwang101 shanwang102 shanwang103 shanwang104  
-
+# gene.sh为基因组数据系统一键导入脚本
 
 
