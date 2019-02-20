@@ -246,7 +246,7 @@ fi
 
 /usr/bin/expect << EOF
 set timeout 100
-spawn git clone  http://git.soyomics.com:9000/xiangzz/gooal-genomeinput.git
+spawn git clone 后端仓库地址
 expect "Username"
 send "username\r"
 expect "Password"
@@ -274,7 +274,7 @@ fi
 cd ${front_dir}
 /usr/bin/expect << EOF
 set timeout 100
-spawn git clone  http://git.soyomics.com:9000/chengj/gooal-genomeinput.git
+spawn git clone  前端仓库地址
 expect "Username"
 send "username\r"
 expect "Password"
