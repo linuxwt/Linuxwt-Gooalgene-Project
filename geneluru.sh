@@ -1,5 +1,6 @@
 #!/bin/bash
 
+:<<!
 # 更换yum源
 yum -y install wget
 mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
@@ -306,3 +307,4 @@ cd Web
 unzip index.zip -d ${nginx_dir}/html
 cd ${nginx_dir}
 docker-compose up -d
+!
