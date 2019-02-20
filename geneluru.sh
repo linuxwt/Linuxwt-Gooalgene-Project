@@ -1,98 +1,6 @@
 #!/bin/bash
 
-:<<!
-# 更换yum源
-yum -y install wget
-mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
-wget http://mirrors.163.com/.help/CentOS7-Base-163.repo
-mv CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
-yum clean all && yum makecache && yum -y update
-
-# 安装docker18.03
-installdocker1()
-{
-        yum -y install yum-utils device-mapper-persistent-data lvm2
-        yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-        yum-config-manager --enable docker-ce-edge
-        yum-config-manager --enable docker-ce-test
-        yum -y install docker-ce
-}
-installdocker2()
-{
-yum install -y yum-utils device-mapper-persistent-data lvm2
-yum-config-manager  --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
-yum makecache fast
-yum -y install docker-ce
-}
-docker version
-if [ $? -eq 127 -o $? -eq 1 ];then
-        echo "we can install docker-ce"
-        sleep 5
-        installdocker1
-        if [ $? -ne 0 ];then
-            echo "you should use aliyun image."
-            installdocker2
-        fi
-        docker version
-        if [ $? -lt 127 ];then
-                echo "the installation of docker-ce is ok."
-                rpm -qa | grep docker | xargs rpm -e --nodeps 
-                yum -y install docker-ce-18.03*
-        else
-                echo "the installation of docker-ce failed ,please reinstall"
-                exit -1
-        fi
-else
-        echo "docker have installed，pleae uninstall old version"
-        sleep 5
-        rpm -qa | grep docker | xargs rpm -e --nodeps
-        docker version
-        if [ $? -eq 127 ];then
-                echo "old docker have been uninstalled and you can install docker-ce"
-                sleep 5
-                installdocker1
-                if [ $? -ne 0 ];then
-                    echo "you should use aliyun image."
-                    installdocker2
-                fi
-                docker version
-                if [ $? -lt 127 ];then
-                        echo "the installation of docker-ce is ok."
-                        rpm -qa | grep docker | xargs rpm -e --nodeps
-                        yum -y install docker-ce-18.03*
-                else
-                        echo "the installation of docker-ce failed anad please reinstall."
-                        exit -1
-                fi
-        else
-                echo "the old docker uninstalled conpletely and please uninstall again."
-                exit -1
-        fi
-fi
-
-systemctl start docker
-sleep 10
-docker_version=$(docker version | grep "Version" | awk '{print $2}' | head -n 2 | sed -n '2p')
-if [ $? -eq 0 ];then
-        echo "docker start successfully and the version is ${docker_version}"
-        sleep 10
-fi
-
-# 安装docker-compose
-yum -y install epel-release  && yum -y install python-pip  && pip install docker-compose  && pip install --upgrade pip 
-docker-compose_version=$(docker-compose version | grep 'docker-compose' | awk '{print $3}')
-if [ $? -eq 0 ];then
-        echo "the docker-compose version is ${docker-compose_version}"
-        sleep 10
-fi
-
-# 配置docker加速拉取
-echo {\"registry-mirrors\":[\"https://nr630v1c.mirror.aliyuncs.com\"]} > /etc/docker/daemon.json
-
-# 安装常用工具
-yum -y install lrzsz && yum -y install openssh-clients && yum -y install telnet && yum -y install rsync
-
-# # 防火墙配置
+# 防火墙配置
 setenforce 0
 sed -i 's/enforcing/disabled/g' /etc/selinux/config
 sed -i 's/enforcing/disabled/g' /etc/sysconfig/selinux
@@ -100,12 +8,21 @@ systemctl stop firewalld
 
 # 时区同步
 if [ ! -f "/etc/localtime" ];then
-	cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+        cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 fi
 if [ ! -f "/etc/timezone" ];then
-	echo "Asia/Shanghai" > /etc/timezone
+        echo "Asia/Shanghai" > /etc/timezone
 fi
 
+# 更换yum源及常用工具安装
+yum -y install wget
+mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
+wget http://mirrors.163.com/.help/CentOS7-Base-163.repo
+mv CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
+yum clean all && yum makecache && yum -y update 
+yum -y install lrzsz && yum -y install openssh-clients && yum -y install rsync
+
+# 项目目录配置
 project_dir="/data/gooalgene"
 if [ ! -d ${project_dir} ];then
      mkdir -p ${project_dir}
@@ -114,16 +31,82 @@ else
      mkdir -p ${project_dir}
 fi
 
-# 更改docker存储位置
-systemctl stop docker
-sleep 10
-cp -r /var/lib/docker ${project_dir}
-rm -Rf /var/lib/docker
-ln -s ${project_dir}/docker /var/lib/docker
-systemctl start docker 
-sleep 10
+# 安装docker18.03
+installdocker()
+{
+yum install -y yum-utils device-mapper-persistent-data lvm2
+yum-config-manager  --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+yum makecache fast
+yum -y install docker-ce-18.03*
+}
+docker version
+if [ $? -eq 127 ];then
+    installdocker
+    docker version
+    if [ $? -lt 127 ];then
+        echo "docker install successful."
+    else
+        echo "docker install failed"
+        exit -1
+    fi
+elif [ $? -eq 1 ];then
+    echo "docker exist,next uninstall old docker."
+    rpm -qa | grep docker | xargs rpm -e --nodeps
+    docker version
+    if [ $? -eq 127 ];then
+        echo "old docker have uninstalled."
+        installdocker
+        docker version
+        if [ $? -lt 127 ];then
+            echo "docker install successful."
+        else
+            echo "docker install failed"
+            exit -1
+        fi
+    else
+        echo "docker uninstall failed."
+        exit -1
+    fi
+else 
+    exit 0
+fi
+docker_version=$(docker version | grep "Version" | awk '{print $2}' | head -n 2 | sed -n '2p')
+systemctl start docker
+if [ $? -eq 0 ];then
+    echo "docker start successfully."
+    echo "docker version is ${docker_version}"
+else
+    echo "docker start failed."
+    exit -1
+fi
+
+# 配置docker加速拉取
+echo {\"registry-mirrors\":[\"https://nr630v1c.mirror.aliyuncs.com\"]} > /etc/docker/daemon.json
+
+# 更改docker默认存储位置
+sed -i 's/\/usr\/bin\/dockerd/\/usr\/bin\/dockerd --graph \/data\/gooalgene\/docker/g' /usr/lib/systemd/system/docker.service
+systemctl daemon-reload && systemctl restart docker
+docker info | grep data/gooalgene/docker
+if [ $? -eq 0 ];then
+    echo "docker default storage space configure successfully."
+else
+    echo "docker default storage space configure failed."
+    exit -1
+fi
 systemctl enable docker
 systemctl daemon-reload
+
+# 安装docker-compose
+yum -y install epel-release  && yum -y install python-pip  && pip install docker-compose  && pip install --upgrade pip 
+docker-compose_version=$(docker-compose version | grep 'docker-compose' | awk '{print $3}')
+docker-compose version
+if [ $? -eq 0 ];then
+    echo "docker-compose install successfully."
+    echo "the docker-compose version is ${docker-compose_version}"
+else
+    echo "docker-compose install failed."
+    exit -1
+fi
 
 # jdk maven部署
 java -version
@@ -306,5 +289,148 @@ git checkout ${branch2}
 cd Web
 unzip index.zip -d ${nginx_dir}/html
 cd ${nginx_dir}
+docker-compose up -d
+sleep 15
+prog=$(docker ps -a | grep nginx_gooalinput | grep Up)
+if [ $prog -eq 1 ];then
+    echo "nginx_gooalinput is ok."
+else
+    echo "nginx_gooalinput is unnormal."
+    exit -1
+fi  
+
+:<<!
+# 安装mysql
+mysql_dir="${project_dir}/gooalgene/mysql"
+if [ ! -d ${mysql_dir} ];then
+    mkdir -p ${mysql_dir}
+else
+    mv ${mysql_dir} ${project_dir}/gooalgene/mysql.bak
+    mkdir -p ${mysql_dir}
+fi
+cat <<EOF>> ${mysql_dir}/docker-compose.yml
+mysql_${species_name}:
+  restart: always
+  image: mysql:5.7
+  container_name: mysql_${species_name}
+  volumes:
+      - /etc/localtime:/etc/localtime
+      - /etc/timezone:/etc/timezone
+      - \$PWD/mysql:/var/lib/mysql
+      - \$PWD/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
+  privileged: true
+  ports:
+    - 33066:3306
+  environment:
+       MYSQL_ROOT_PASSWORD: ${mysqlroot_password}
+EOF
+cat <<EOF>> ${mysql_dir}/mysqld.cnf
+[mysqld]
+pid-file    = /var/run/mysqld/mysqld.pid
+socket      = /var/run/mysqld/mysqld.sock
+datadir     = /var/lib/mysql
+#log-error  = /var/log/mysql/error.log
+# By default we only accept connections from localhost
+#bind-address   = 127.0.0.1
+# Disabling symbolic-links is recommended to prevent assorted security risks
+#支持符号链接，就是可以通过软连接的方式，管理其他目录的数据库，最好不要开启，当一个磁盘或分区空间不够时，可以开启该参数将数据存储到其他的磁盘或分区。
+#http://blog.csdn.net/moxiaomomo/article/details/17092871
+symbolic-links=0
+EOF
+cd ${mysql_dir}
+docker-compose up -d
+# 保证mysql初始化完成,要不然下面无法进行数据库的创建
+sleep 15
+docker exec mysql_${species_name} mysql -uroot -p${mysqlroot_password} -e "create database ${mysql_db};show databases;"
+# 安装mongodb
+mongo_dir="${project_dir}/gooalgene/mongodb"
+if [ -d ${mongo_dir} ];then
+    mv ${project_dir}/gooalgene/mongodb ${project_dir}/gooalgene/mongodb.bak
+    mkdir -p ${project_dir}/gooalgene/mongodb
+else
+    mkdir -p ${project_dir}/gooalgene/mongodb
+fi
+cat <<EOF>> ${mongo_dir}/Dockerfile
+FROM centos:centos7
+MAINTAINER linuxwt <tengwanginit@gmail.com>
+ 
+RUN yum -y update
+ 
+RUN  echo '[mongodb-org-3.6]' > /etc/yum.repos.d/mongodb-org-3.6.repo
+RUN  echo 'name=MongoDB Repository' >> /etc/yum.repos.d/mongodb-org-3.6.repo
+RUN  echo 'baseurl=http://repo.mongodb.org/yum/redhat/7/mongodb-org/3.6/x86_64/' >> /etc/yum.repos.d/mongodb-org-3.6.repo
+RUN  echo 'enabled=1' >> /etc/yum.repos.d/mongodb-org-3.6.repo
+RUN  echo 'gpgcheck=0' >> /etc/yum.repos.d/mongodb-org-3.6.repo
+ 
+RUN yum -y install make
+RUN yum -y install mongodb-org
+RUN mkdir -p /data/db
+ 
+EXPOSE 27017
+ENTRYPOINT ["/usr/bin/mongod"]
+EOF
+cd ${mongo_dir}
+docker build -t centos7/mongo:3.6 .
+cat <<EOF>> ${mongo_dir}/docker-compose.yml
+mongo_${species_name}:
+  restart: always
+  image: centos7/mongo:3.6
+  container_name: mongo_${species_name}
+  volumes:
+    - /etc/localtime:/etc/localtime
+    - /etc/timezone:/etc/timezone
+    - \$PWD/mongo:/data/db
+    - \$PWD/enabled:/sys/kernel/mm/transparent_hugepage/enabled
+    - \$PWD/defrag:/sys/kernel/mm/transparent_hugepage/defrag
+  ulimits:
+    nofile:
+      soft: 300000
+      hard: 300000
+  ports:
+      - "27117:27017"
+  command: --bind_ip_all --port 27017 --oplogSize 204800 --profile=1 --slowms=500
+EOF
+echo "always madvise [never]" > ${mongo_dir}/defrag
+echo "always madvise [never]" > ${mongo_dir}/enabled
+docker-compose up -d
+sleep 10
+docker exec mongo_${species_name} mongo admin --eval "db.createUser({user:\"${mongoadmin_user}\", pwd:\"${mongoadmin_password}\", roles:[{role:\"root\", db:\"admin\"},{role:\"clusterAdmin\",db:\"admin\"}]})"
+docker-compose down
+sed -i '/command.*/s//& --auth/g' /home/data/gooalgene/mongodb/docker-compose.yml
+docker-compose up -d
+sleep 10
+# 安装redis
+redis_dir="${project_dir}/gooalgene/redis"
+if [ -d ${redis_dir} ];then
+    mv ${project_dir}/gooalgene/redis ${project_dir}/gooalgene/redis.bak
+    mkdir -p ${project_dir}/gooalgene/redis
+else
+    mkdir -p ${project_dir}/gooalgene/redis
+fi
+cat <<EOF>> ${redis_dir}/docker-compose.yml
+redis_${species_name}:
+  restart: always
+  image: redis:4.0
+  container_name: redis_${species_name}
+  volumes:
+      - /etc/localtime:/etc/localtime
+      - /etc/timezone:/etc/timezone
+      - \$PWD/redis:/data
+      - \$PWD/redis.conf:/usr/local/etc/redis/redis.conf
+  privileged: true
+  ports:
+      - 6389:6379
+  command: redis-server /usr/local/etc/redis/redis.conf
+EOF
+cat <<EOF>> ${redis_dir}/redis.conf
+bind 127.0.0.1 
+#daemonize yes //禁止redis后台运行
+port 6379
+pidfile /var/run/redis.pid 
+appendonly yes
+protected-mode no
+requirepass ${redis_password}
+EOF
+cd ${redis_dir}
 docker-compose up -d
 !
