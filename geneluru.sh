@@ -414,7 +414,7 @@ port 6379
 pidfile /var/run/redis.pid 
 appendonly yes
 protected-mode no
-requirepass Gooal&123
+requirepass ***
 EOF
 cd ${redis_dir}
 docker-compose up -d
