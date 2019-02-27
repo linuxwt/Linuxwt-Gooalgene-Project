@@ -255,7 +255,7 @@ fi
 cd ${back_dir}
 /usr/bin/expect << EOF
 set timeout 100
-spawn git clone  http://git.soyomics.com:9000/xiangzz/gooal-genomeinput.git
+spawn git clone  仓库地址
 expect "Username"
 send "***\r"
 expect "Password"
@@ -288,7 +288,7 @@ fi
 cd ${front_dir}
 /usr/bin/expect << EOF
 set timeout 100
-spawn git clone  http://git.soyomics.com:9000/chengj/gooal-genomeinput.git
+spawn git clone  仓库地址
 expect "Username"
 send "***\r"
 expect "Password"
@@ -349,7 +349,7 @@ mysql_gene:
   ports:
     - 33066:3306
   environment:
-       MYSQL_ROOT_PASSWORD: gooalgene@123
+       MYSQL_ROOT_PASSWORD: ***
 EOF
 cat <<EOF>> ${mysql_dir}/mysqld.cnf
 [mysqld]
@@ -595,7 +595,7 @@ fi
 cd ${specieback_dir}
 /usr/bin/expect << EOF
 set timeout 100
-spawn git clone http://git.soyomics.com:9000/hnz/Genome-Backstage.git/
+spawn git clone 仓库地址
 expect "Username"
 send "***\r"
 expect "Password"
@@ -629,7 +629,7 @@ fi
 cd ${speciefront_dir}
 /usr/bin/expect << EOF
 set timeout 100
-spawn git clone  http://git.soyomics.com:9000/zhangjt/genome_database.git/
+spawn git clone  仓库地址
 expect "Username"
 send "***\r"
 expect "Password"
