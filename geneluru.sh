@@ -257,9 +257,9 @@ cd ${back_dir}
 set timeout 100
 spawn git clone  http://git.soyomics.com:9000/xiangzz/gooal-genomeinput.git
 expect "Username"
-send "wangteng\r"
+send "***\r"
 expect "Password"
-send "wangteng456\r"
+send "***\r"
 set timeout 100
 expect eof
 exit
@@ -290,9 +290,9 @@ cd ${front_dir}
 set timeout 100
 spawn git clone  http://git.soyomics.com:9000/chengj/gooal-genomeinput.git
 expect "Username"
-send "wangteng\r"
+send "***\r"
 expect "Password"
-send "wangteng456\r"
+send "***\r"
 set timeout 100
 expect eof
 exit
@@ -597,9 +597,9 @@ cd ${specieback_dir}
 set timeout 100
 spawn git clone http://git.soyomics.com:9000/hnz/Genome-Backstage.git/
 expect "Username"
-send "wangteng\r"
+send "***\r"
 expect "Password"
-send "wangteng456\r"
+send "***\r"
 set timeout 100
 expect eof
 exit
@@ -631,9 +631,9 @@ cd ${speciefront_dir}
 set timeout 100
 spawn git clone  http://git.soyomics.com:9000/zhangjt/genome_database.git/
 expect "Username"
-send "wangteng\r"
+send "***\r"
 expect "Password"
-send "wangteng456\r"
+send "***\r"
 set timeout 100
 expect eof
 exit
