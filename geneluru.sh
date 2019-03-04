@@ -271,11 +271,7 @@ cd src/main/resources
 sed -i "s/172.168.1.210/${ip}/g" application-test.yml
 sed -i "s/172.168.1.209/${ip}/g" application-test.yml
 sed -i 's/9e5ac27b174a/mysql_gene/g' application-test.yml
-#cd ../../../
-#mvn  clean install -DskipTests=true
-#cd target
-#netstat -ntlp|grep 8085 | awk '{print $7}' | awk -F '/' '{print $1}' | xargs kill -9 1>/dev/null 2>&1 | exit 0
-#nohup java -jar GooalGenomeInput.jar & 1>/dev/null 2>&1 | exit 0
+
 # 前端部署
 front_dir="${project_dir}/geneluru_front"
 branch2="master"
@@ -377,12 +373,7 @@ else
     echo "mysql_gene is unnormal."
     exit  -1
 fi
-# 启动后端
-cd ${back_dir}/gooal-genomeinput
-mvn  clean install -DskipTests=true
-cd target
-netstat -ntlp|grep 8085 | awk '{print $7}' | awk -F '/' '{print $1}' | xargs kill -9 1>/dev/null 2>&1 | exit 0
-nohup java -jar GooalGenomeInput.jar & 1>/dev/null 2>&1 | exit 0
+
 
 # 安装redis
 redis_dir="${project_dir}/redis"
@@ -419,8 +410,15 @@ EOF
 cd ${redis_dir}
 docker-compose up -d
 sleep 15
+# 启动后端
+cd ${back_dir}/gooal-genomeinput
+mvn  clean install -DskipTests=true
+cd target
+netstat -ntlp|grep 8085 | awk '{print $7}' | awk -F '/' '{print $1}' | xargs kill -9 1>/dev/null 2>&1 | exit 0
+nohup java -jar GooalGenomeInput.jar & 1>/dev/null 2>&1 | exit 0
+sleep 20
 proc=$(docker ps -a | grep redis_gene | grep Up | wc -l)
-if [ $prob -eq 1 ];then
+if [ $proc -eq 1 ];then
     echo "redis_gene is ok."
     echo "${ip} 的数据导入系统已经部署完成,可以开始导入数据" | mail -s "数据导入系统" wangteng@gooalgene.com
 else
@@ -434,21 +432,12 @@ if [ ${prot} -eq 1 ];then
 else
     exit -1
 fi
-sleep 900
+sleep 600
 # 数据录入
-#proa=$(cat  ${back_dir}/gooal-genomeinput/target/nohup.out  | grep error | wc -l)
 proe=$(ps -ef | grep LOAD | grep -v grep | wc -l)
-#case ${proa} in
-#0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9)
-#while :
-#do
-#    echo "正在导入数据" >/dev/null
-#done
-#;;
-#10)
 if [ ${proe} -eq 0  ];then
     echo "mysql数据已经导入完成,部署物种即将开始" | mail -s "数据导入系统" wangteng@gooalgene.com
-else 
+else
     echo "is importing data..."
     sleep 300
     if [ ${proe} -eq 0  ];then
@@ -458,11 +447,6 @@ else
         exit -1
     fi
 fi
-#;;
-#*)
-#;;
-#esac
-
           
 # 部署物种genome
 # 配置物种目录
