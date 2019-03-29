@@ -1,11 +1,8 @@
 #!/bin/bash
  
-  
 echo -n "enter the args: ip 数据导入时间 邮箱 物种名 mysql库名 mysqlroot密码 redis密码 系统root密码 物种前端仓库分支 物种后端仓库分支->"
 read ip import_time mail  specie dbname mysql_password  redis_password root_password  frontbranch endbranch
  
-  
-  
 # 防火墙配置
 setenforce 0
 sed -i 's/enforcing/disabled/g' /etc/selinux/config
